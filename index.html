@@ -5,7 +5,7 @@
 <title>Ondas Infinitas</title>
 <style>
   body { margin:0; background:#111; color:#eee; font-family:sans-serif; overflow:hidden; }
-  canvas { display:block; margin:auto; background:#1a1a2e; }
+  canvas { display:block; margin:auto; background:#1a1a2e; outline:none; }
   #hud { position:absolute; top:10px; left:10px; font-size:16px; pointer-events:none; text-shadow:0 0 4px #000; }
   #powerup {
     position:absolute; inset:0; display:none; flex-direction:column;
@@ -24,7 +24,7 @@
 </style>
 </head>
 <body>
-<canvas id="game" width="900" height="600"></canvas>
+<canvas id="game" width="900" height="600" tabindex="0"></canvas>
 <div id="hud">
   <div>❤️ Vida: <span id="hp">100</span></div>
   <div>🏆 Score: <span id="score">0</span></div>
@@ -44,46 +44,11 @@ const W = canvas.width, H = canvas.height;
 
 // ===== BIOMAS =====
 const BIOMES = [
-  {
-    name: "Planície",
-    bg: "#1a1a2e",
-    grid: "#252540",
-    obstacleColor: "#4a4a6a",
-    obstacleEdge: "#6a6a8a",
-    obstacleCount: 4
-  },
-  {
-    name: "Caverna",
-    bg: "#1a1010",
-    grid: "#2a1a1a",
-    obstacleColor: "#5a3a2a",
-    obstacleEdge: "#8a5a3a",
-    obstacleCount: 7
-  },
-  {
-    name: "Gelo",
-    bg: "#0e1a24",
-    grid: "#1a2e3e",
-    obstacleColor: "#3a6a8a",
-    obstacleEdge: "#6aaad0",
-    obstacleCount: 5
-  },
-  {
-    name: "Vulcão",
-    bg: "#1a0a0a",
-    grid: "#3a1515",
-    obstacleColor: "#4a2020",
-    obstacleEdge: "#a03a1a",
-    obstacleCount: 6
-  },
-  {
-    name: "Ruínas",
-    bg: "#15151a",
-    grid: "#2a2a35",
-    obstacleColor: "#3a3a45",
-    obstacleEdge: "#7a7a85",
-    obstacleCount: 8
-  }
+  { name: "Planície", bg: "#1a1a2e", grid: "#252540", obstacleColor: "#4a4a6a", obstacleEdge: "#6a6a8a", obstacleCount: 4 },
+  { name: "Caverna",  bg: "#1a1010", grid: "#2a1a1a", obstacleColor: "#5a3a2a", obstacleEdge: "#8a5a3a", obstacleCount: 7 },
+  { name: "Gelo",     bg: "#0e1a24", grid: "#1a2e3e", obstacleColor: "#3a6a8a", obstacleEdge: "#6aaad0", obstacleCount: 5 },
+  { name: "Vulcão",   bg: "#1a0a0a", grid: "#3a1515", obstacleColor: "#4a2020", obstacleEdge: "#a03a1a", obstacleCount: 6 },
+  { name: "Ruínas",   bg: "#15151a", grid: "#2a2a35", obstacleColor: "#3a3a45", obstacleEdge: "#7a7a85", obstacleCount: 8 }
 ];
 
 // ===== ESTADO DO JOGO =====
@@ -139,11 +104,9 @@ function generateObstacles() {
     const x = margin + Math.random() * (W - margin*2 - w);
     const y = margin + Math.random() * (H - margin*2 - h);
 
-    // não bloqueia o centro (onde o player spawna)
     if (x < W/2 + centerSafe && x + w > W/2 - centerSafe &&
         y < H/2 + centerSafe && y + h > H/2 - centerSafe) continue;
 
-    // não sobrepõe outros
     let overlap = false;
     for (const o of game.obstacles) {
       if (x < o.x + o.w + 30 && x + w + 30 > o.x &&
@@ -157,24 +120,19 @@ function generateObstacles() {
       x, y, w, h,
       color: biome.obstacleColor,
       edge: biome.obstacleEdge,
-      // pequena variação pro visual
-      shape: Math.floor(Math.random() * 3),
     });
   }
 }
 
 // ===== MUDANÇA DE BIOMA =====
 function changeBiome() {
-  const oldBg = BIOMES[game.biomeIndex].bg;
   game.biomeIndex = (game.biomeIndex + 1) % BIOMES.length;
   generateObstacles();
-  // efeito visual: flash
   game.bgPulse = 1;
-  // empurra inimigos pra fora de obstáculos se ficarem presos
-  game.enemies.forEach(e => resolveEnemyObstacles(e));
+  game.enemies.forEach(e => resolveCircleObstacles(e));
 }
 
-// ===== COLISÃO COM OBSTÁCULOS =====
+// ===== COLISÃO =====
 function circleRectCollide(cx, cy, r, rect) {
   const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
   const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
@@ -191,7 +149,6 @@ function resolveCircleObstacles(entity) {
     const dist = Math.hypot(dx, dy);
     if (dist < entity.r) {
       if (dist === 0) {
-        // dentro do bloco: empurra pro lado mais próximo
         const cx = o.x + o.w/2, cy = o.y + o.h/2;
         entity.x += (entity.x - cx) * 0.1;
         entity.y += (entity.y - cy) * 0.1;
@@ -202,10 +159,6 @@ function resolveCircleObstacles(entity) {
       }
     }
   }
-}
-
-function resolveEnemyObstacles(e) {
-  resolveCircleObstacles(e);
 }
 
 // ===== PARTÍCULAS =====
@@ -259,7 +212,9 @@ function showPowerUpChoice() {
       document.getElementById('powerup').style.display = 'none';
       game.paused = false;
       game.wave++;
+      if (game.wave % 5 === 0) changeBiome();
       startWave();
+      canvas.focus();
     };
     cards.appendChild(div);
   });
@@ -312,7 +267,7 @@ function update() {
   if (game.bgPulse > 0) game.bgPulse *= 0.92;
   if (p.hitFlash > 0) p.hitFlash--;
 
-  // Movimento
+  // Movimento — aceita WASD e setas (case-insensitive)
   let dx = 0, dy = 0;
   if (game.keys['w'] || game.keys['arrowup']) dy -= 1;
   if (game.keys['s'] || game.keys['arrowdown']) dy += 1;
@@ -323,11 +278,9 @@ function update() {
   p.x += dx * p.speed;
   p.y += dy * p.speed;
 
-  // Limites da tela
   p.x = Math.max(p.r, Math.min(W - p.r, p.x));
   p.y = Math.max(p.r, Math.min(H - p.r, p.y));
 
-  // Colisão com obstáculos
   resolveCircleObstacles(p);
 
   // Tiro
@@ -369,7 +322,6 @@ function update() {
       showPowerUpChoice();
     } else {
       game.wave++;
-      // troca bioma a cada 5 ondas
       if (game.wave % 5 === 0) changeBiome();
       startWave();
     }
@@ -381,7 +333,6 @@ function update() {
     if (b.trail.length > 6) b.trail.shift();
     b.x += b.vx; b.y += b.vy;
 
-    // colisão com obstáculos
     for (const o of game.obstacles) {
       if (b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h) {
         spawnHitParticles(b.x, b.y, '#8af', 5);
@@ -401,9 +352,7 @@ function update() {
     e.x += Math.cos(a) * e.speed;
     e.y += Math.sin(a) * e.speed;
 
-    // colisão com obstáculo — se travou, tenta desviar
     resolveCircleObstacles(e);
-    // se ficou muito tempo parado, dá uma leve "escorregada" lateral
     if (Math.hypot(e.x - oldX, e.y - oldY) < e.speed * 0.3) {
       e.x += Math.cos(a + Math.PI/2) * e.speed * 0.6;
       e.y += Math.sin(a + Math.PI/2) * e.speed * 0.6;
@@ -421,7 +370,6 @@ function update() {
         e.hp -= b.damage;
         e.hitFlash = 6;
         b.hit.push(e);
-        // partículas de impacto
         spawnHitParticles(b.x, b.y, e.color, 6);
         if (e.hp <= 0) {
           spawnHitParticles(e.x, e.y, e.color, 14);
@@ -464,7 +412,6 @@ function update() {
 function draw() {
   const biome = BIOMES[game.biomeIndex];
 
-  // shake de câmera
   ctx.save();
   if (game.shake > 0.5) {
     ctx.translate(
@@ -473,17 +420,13 @@ function draw() {
     );
   }
 
-  // fundo
   let bgColor = biome.bg;
   if (game.bgPulse > 0.05) {
-    // flash branco ao trocar bioma
-    const p = game.bgPulse;
-    bgColor = mixColors(biome.bg, '#ffffff', p * 0.6);
+    bgColor = mixColors(biome.bg, '#ffffff', game.bgPulse * 0.6);
   }
   ctx.fillStyle = bgColor;
   ctx.fillRect(-20, -20, W + 40, H + 40);
 
-  // grid
   ctx.strokeStyle = biome.grid;
   ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 40) {
@@ -497,17 +440,13 @@ function draw() {
 
   // obstáculos
   game.obstacles.forEach(o => {
-    // sombra
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(o.x + 4, o.y + 4, o.w, o.h);
-    // corpo
     ctx.fillStyle = o.color;
     ctx.fillRect(o.x, o.y, o.w, o.h);
-    // borda superior iluminada
     ctx.fillStyle = o.edge;
     ctx.fillRect(o.x, o.y, o.w, 3);
     ctx.fillRect(o.x, o.y, 3, o.h);
-    // textura interna
     ctx.strokeStyle = 'rgba(0,0,0,0.2)';
     ctx.lineWidth = 1;
     for (let i = 0; i < o.w; i += 12) {
@@ -518,7 +457,7 @@ function draw() {
     }
   });
 
-  // partículas (atrás dos projéteis)
+  // partículas
   game.particles.forEach(pt => {
     const alpha = pt.life / pt.maxLife;
     ctx.globalAlpha = alpha;
@@ -529,9 +468,8 @@ function draw() {
   });
   ctx.globalAlpha = 1;
 
-  // projéteis (com rastro)
+  // projéteis
   game.bullets.forEach(b => {
-    // rastro
     for (let i = 0; i < b.trail.length; i++) {
       const t = b.trail[i];
       const a = (i / b.trail.length) * 0.7;
@@ -542,31 +480,25 @@ function draw() {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-    // núcleo
     ctx.fillStyle = '#cfefff';
     ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
-    // glow
     ctx.fillStyle = 'rgba(120,180,255,0.35)';
     ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, Math.PI*2); ctx.fill();
   });
 
   // inimigos
   game.enemies.forEach(e => {
-    // sombra
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath(); ctx.arc(e.x + 3, e.y + 3, e.r, 0, Math.PI*2); ctx.fill();
 
-    // corpo com flash
     ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
 
-    // contorno pulsante
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 2;
     const pulse = 1 + Math.sin(e.wobble) * 0.08;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.r * pulse, 0, Math.PI*2); ctx.stroke();
 
-    // "olhos" apontando pro player
     const a = Math.atan2(p.y - e.y, p.x - e.x);
     ctx.fillStyle = '#000';
     ctx.beginPath();
@@ -574,7 +506,6 @@ function draw() {
     ctx.arc(e.x + Math.cos(a + 0.4) * e.r * 0.4, e.y + Math.sin(a + 0.4) * e.r * 0.4, e.r * 0.18, 0, Math.PI*2);
     ctx.fill();
 
-    // barra de vida
     const hpPct = Math.max(0, e.hp / (20 + game.wave * 3));
     ctx.fillStyle = '#000';
     ctx.fillRect(e.x - e.r, e.y - e.r - 8, e.r * 2, 4);
@@ -584,20 +515,15 @@ function draw() {
 
   // jogador
   const pColor = p.hitFlash > 0 ? '#fff' : '#6f6';
-  // glow
   ctx.fillStyle = 'rgba(100,255,100,0.15)';
   ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 8, 0, Math.PI*2); ctx.fill();
-  // sombra
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath(); ctx.arc(p.x + 2, p.y + 3, p.r, 0, Math.PI*2); ctx.fill();
-  // corpo
   ctx.fillStyle = pColor;
   ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-  // contorno
   ctx.strokeStyle = '#2a6a2a';
   ctx.lineWidth = 2;
   ctx.stroke();
-  // direção
   const a = Math.atan2(game.mouseY - p.y, game.mouseX - p.x);
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
   ctx.beginPath();
@@ -607,7 +533,6 @@ function draw() {
 
   ctx.restore();
 
-  // game over
   if (game.gameOver) {
     ctx.fillStyle = 'rgba(0,0,0,0.75)';
     ctx.fillRect(0, 0, W, H);
@@ -621,7 +546,6 @@ function draw() {
     ctx.fillText('Pressione ENTER para reiniciar', W/2, H/2 + 70);
   }
 
-  // HUD
   document.getElementById('hp').textContent = Math.max(0, Math.floor(p.hp)) + '/' + p.maxHp;
   document.getElementById('score').textContent = game.score;
   document.getElementById('wave').textContent = game.wave;
@@ -629,7 +553,6 @@ function draw() {
   document.getElementById('biome').textContent = biome.name;
 }
 
-// utilitário: mistura duas cores hex
 function mixColors(c1, c2, t) {
   const h1 = parseInt(c1.slice(1), 16);
   const h2 = parseInt(c2.slice(1), 16);
@@ -639,6 +562,40 @@ function mixColors(c1, c2, t) {
   return `rgb(${r},${g},${b})`;
 }
 
+// ===== INPUT =====
+canvas.focus();
+canvas.addEventListener('click', () => canvas.focus());
+
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) {
+    e.preventDefault();
+  }
+  game.keys[k] = true;
+  if (game.gameOver && e.key === 'Enter') {
+    initGame();
+    startWave();
+    canvas.focus();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  game.keys[e.key.toLowerCase()] = false;
+});
+
+window.addEventListener('blur', () => {
+  game.keys = {};
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  game.mouseX = (e.clientX - rect.left) * scaleX;
+  game.mouseY = (e.clientY - rect.top) * scaleY;
+});
+
+// ===== LOOP =====
 function loop() {
   update();
   draw();
