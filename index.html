@@ -20,8 +20,7 @@
     height:100%; width:0%; background:linear-gradient(90deg,#4af,#8ff);
     transition:width 0.15s linear;
   }
-  #specialBar.ready { border-color:#8ff; box-shadow:0 0 12px #4af; animation:pulse 0.8s infinite alternate; }
-  @keyframes pulse { from { box-shadow:0 0 8px #4af; } to { box-shadow:0 0 20px #8ff; } }
+  #specialBar.ready { border-color:#8ff; box-shadow:0 0 12px #4af; }
   #specialText { font-size:12px; margin-top:4px; color:#aaa; }
   #powerup {
     position:absolute; inset:0; display:none; flex-direction:column;
@@ -33,7 +32,7 @@
     background:#222; border:2px solid #444; padding:20px; margin:10px;
     width:400px; cursor:pointer; border-radius:8px; transition:0.2s;
   }
-  .card:hover { border-color:#4af; background:#2a2a3e; transform: scale(1.03); }
+  .card:hover { border-color:#4af; background:#2a2a3e; }
   .card h3 { margin:0 0 8px; color:#4af; }
   .buff { color:#6f6; }
   .debuff { color:#f66; }
@@ -51,7 +50,7 @@
 <div id="weaponHud">
   <div id="weaponName">Pistola</div>
   <div id="specialBar"><div id="specialFill"></div></div>
-  <div id="specialText">Especial: 0/10 kills — pressione [Q] ou [Botão Direito]</div>
+  <div id="specialText">Especial: 0/8 kills — [Q] ou [Botão Direito]</div>
 </div>
 <div id="powerup">
   <h2>Escolha um poder (e um preço...)</h2>
@@ -63,49 +62,16 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
-// ============================================================
-// CONFIGURAÇÃO DE SPRITES
-// ------------------------------------------------------------
-// Quando você tiver as imagens, coloque os arquivos em uma pasta
-// "sprites/" no mesmo diretório do index.html, ex:
-//   sprites/player.png
-//   sprites/enemy_basic.png
-//   sprites/bullet.png
-//
-// Depois, basta carregar as imagens aqui embaixo e mudar o valor
-// de SPRITES.xxx de null para a imagem carregada.
-// O código de desenho JÁ ESTÁ PRONTO para usar sprite OU forma
-// geométrica (fallback). Nada mais precisa ser mudado.
-// ============================================================
+// ===== SPRITES (deixe null até ter os arquivos) =====
 const SPRITES = {
-  player:     null,   // ex: new Image() -> carregar 'sprites/player.png'
+  player: null,
   enemyBasic: null,
-  enemyFast:  null,
-  enemyTank:  null,
-  bullet:     null,
-  obstacle:   null,
+  enemyFast: null,
+  enemyTank: null,
+  bullet: null,
+  obstacle: null,
 };
 
-// Função auxiliar para carregar sprite (use quando tiver os arquivos)
-function loadSprite(key, src) {
-  const img = new Image();
-  img.onload = () => { SPRITES[key] = img; };
-  img.onerror = () => console.warn('Falha ao carregar sprite:', src);
-  img.src = src;
-}
-// Exemplo de uso (descomente quando tiver os arquivos):
-// loadSprite('player', 'sprites/player.png');
-// loadSprite('enemyBasic', 'sprites/enemy_basic.png');
-// loadSprite('bullet', 'sprites/bullet.png');
-
-// ============================================================
-// SISTEMA DE DESENHO DE SPRITE COM FALLBACK
-// ------------------------------------------------------------
-// drawSprite(chave, x, y, tamanho, fallbackFn)
-// - Se o sprite estiver carregado, desenha ele centralizado.
-// - Se NÃO estiver, chama fallbackFn() que desenha a forma atual.
-// Assim você pode substituir um sprite de cada vez.
-// ============================================================
 function drawSprite(key, x, y, size, angle, fallbackFn) {
   const img = SPRITES[key];
   if (img) {
@@ -129,81 +95,56 @@ const BIOMES = [
 ];
 
 // ===== ARMAS =====
-// Cada arma tem seus stats e uma função de "especial".
-// O especial é ativado quando a barra está cheia.
 const WEAPONS = {
   pistol: {
     name: "Pistola",
-    fireRate: 18,
-    bulletSpeed: 9,
-    bulletDamage: 12,
-    bulletCount: 1,
-    spread: 0,
-    pierce: 0,
-    killCost: 8,       // kills pra carregar o especial
+    fireRate: 18, bulletSpeed: 9, bulletDamage: 12,
+    bulletCount: 1, spread: 0, pierce: 0,
+    killCost: 8,
     specialName: "Rajada Tripla",
-    specialDesc: "Dispara 5 tiros rápidos em cone",
-    special: (p, game) => {
-      // rajada de 5 tiros em cone
-      const angle = Math.atan2(game.mouseY - p.y, game.mouseX - p.x);
+    specialDesc: "5 tiros rápidos em cone",
+    special: (p, g) => {
+      const a = Math.atan2(g.mouseY - p.y, g.mouseX - p.x);
       for (let i = 0; i < 5; i++) {
-        const a = angle + (i - 2) * 0.12;
-        game.bullets.push(makeBullet(p, a, p.bulletSpeed * 1.2, p.bulletDamage * 1.5, 1, 'special'));
+        g.bullets.push(makeBullet(p, a + (i - 2) * 0.12, p.bulletSpeed * 1.2, p.bulletDamage * 1.5, 1, 'special'));
       }
     }
   },
   shotgun: {
     name: "Escopeta",
-    fireRate: 42,
-    bulletSpeed: 7,
-    bulletDamage: 8,
-    bulletCount: 6,
-    spread: 0.5,
-    pierce: 0,
+    fireRate: 42, bulletSpeed: 7, bulletDamage: 8,
+    bulletCount: 6, spread: 0.5, pierce: 0,
     killCost: 10,
     specialName: "Explosão",
-    specialDesc: "Dispara uma bala enorme que explode",
-    special: (p, game) => {
-      const angle = Math.atan2(game.mouseY - p.y, game.mouseX - p.x);
-      game.bullets.push({
-        ...makeBullet(p, angle, 6, 40, 0, 'explosive'),
-        explosive: true,
-        radius: 90,
-      });
+    specialDesc: "Bala enorme que explode",
+    special: (p, g) => {
+      const a = Math.atan2(g.mouseY - p.y, g.mouseX - p.x);
+      const b = makeBullet(p, a, 6, 40, 0, 'explosive');
+      b.explosive = true; b.radius = 90; b.r = 7;
+      g.bullets.push(b);
     }
   },
   smg: {
     name: "Metralhadora",
-    fireRate: 5,
-    bulletSpeed: 11,
-    bulletDamage: 5,
-    bulletCount: 1,
-    spread: 0.18,
-    pierce: 0,
+    fireRate: 5, bulletSpeed: 11, bulletDamage: 5,
+    bulletCount: 1, spread: 0.18, pierce: 0,
     killCost: 12,
     specialName: "Overdrive",
-    specialDesc: "Cadência absurda por 5 segundos",
-    special: (p, game) => {
-      p.overdrive = 300; // frames
-    }
+    specialDesc: "Cadência absurda por 5s",
+    special: (p, g) => { p.overdrive = 300; }
   },
   sniper: {
     name: "Sniper",
-    fireRate: 55,
-    bulletSpeed: 20,
-    bulletDamage: 60,
-    bulletCount: 1,
-    spread: 0,
-    pierce: 3,
+    fireRate: 55, bulletSpeed: 20, bulletDamage: 60,
+    bulletCount: 1, spread: 0, pierce: 3,
     killCost: 6,
     specialName: "Perfurante",
-    specialDesc: "Tiro que atravessa TODOS os inimigos",
-    special: (p, game) => {
-      const angle = Math.atan2(game.mouseY - p.y, game.mouseX - p.x);
-      game.bullets.push({
-        ...makeBullet(p, angle, 25, 100, 999, 'pierce'),
-        r: 8,
-      });
+    specialDesc: "Tiro que atravessa tudo",
+    special: (p, g) => {
+      const a = Math.atan2(g.mouseY - p.y, g.mouseX - p.x);
+      const b = makeBullet(p, a, 25, 100, 999, 'pierce');
+      b.r = 8;
+      g.bullets.push(b);
     }
   },
 };
@@ -216,61 +157,41 @@ function makeBullet(p, angle, speed, damage, pierce, type) {
     vy: Math.sin(angle) * speed,
     damage, pierce, hit: [], trail: [], angle,
     type: type || 'normal',
-    life: 0,
-    r: 4,
+    life: 0, r: 4,
   };
 }
 
-// ===== ESTADO DO JOGO =====
+// ===== ESTADO =====
 let game;
 
 function initGame() {
   game = {
     player: {
       x: W/2, y: H/2, r: 12,
-      hp: 100, maxHp: 100,
-      speed: 3.2,
-      bulletSpeed: 9,
-      bulletDamage: 10,
-      bulletCount: 1,
-      fireRate: 20,
-      fireCooldown: 0,
-      pierce: 0,
-      hitFlash: 0,
-      overdrive: 0,
+      hp: 100, maxHp: 100, speed: 3.2,
+      bulletSpeed: 9, bulletDamage: 10, bulletCount: 1,
+      fireRate: 20, fireCooldown: 0, pierce: 0,
+      hitFlash: 0, overdrive: 0,
     },
-    weapon: 'pistol',           // arma atual
+    weapon: 'pistol',
     weaponCooldown: 0,
-    killCharge: 0,              // kills acumuladas pra especial
-    bullets: [],
-    enemies: [],
-    particles: [],
-    obstacles: [],
+    killCharge: 0,
+    bullets: [], enemies: [], particles: [], obstacles: [],
     keys: {},
-    wave: 1,
-    waveEnemiesLeft: 0,
-    waveSpawning: false,
-    spawnTimer: 0,
+    wave: 1, waveEnemiesLeft: 0, waveSpawning: false, spawnTimer: 0,
     score: 0,
     mouseX: W/2, mouseY: H/2,
-    mouseDown: false,
-    paused: false,
-    gameOver: false,
+    paused: false, gameOver: false,
     biomeIndex: 0,
-    shake: 0,
-    bgPulse: 0,
-    screenFlash: 0,
+    shake: 0, bgPulse: 0, screenFlash: 0,
   };
   generateObstacles();
 }
 
-// ===== OBSTÁCULOS =====
 function generateObstacles() {
   const biome = BIOMES[game.biomeIndex];
   game.obstacles = [];
-  const margin = 80;
-  const centerSafe = 140;
-
+  const margin = 80, centerSafe = 140;
   let attempts = 0;
   while (game.obstacles.length < biome.obstacleCount && attempts < 200) {
     attempts++;
@@ -278,17 +199,14 @@ function generateObstacles() {
     const h = 40 + Math.random() * 80;
     const x = margin + Math.random() * (W - margin*2 - w);
     const y = margin + Math.random() * (H - margin*2 - h);
-
     if (x < W/2 + centerSafe && x + w > W/2 - centerSafe &&
         y < H/2 + centerSafe && y + h > H/2 - centerSafe) continue;
-
     let overlap = false;
     for (const o of game.obstacles) {
       if (x < o.x + o.w + 30 && x + w + 30 > o.x &&
           y < o.y + o.h + 30 && y + h + 30 > o.y) { overlap = true; break; }
     }
     if (overlap) continue;
-
     game.obstacles.push({ x, y, w, h, color: biome.obstacleColor, edge: biome.obstacleEdge });
   }
 }
@@ -300,7 +218,6 @@ function changeBiome() {
   game.enemies.forEach(e => resolveCircleObstacles(e));
 }
 
-// ===== COLISÃO =====
 function resolveCircleObstacles(entity) {
   for (const o of game.obstacles) {
     const closestX = Math.max(o.x, Math.min(entity.x, o.x + o.w));
@@ -322,8 +239,8 @@ function resolveCircleObstacles(entity) {
   }
 }
 
-// ===== PARTÍCULAS =====
-function spawnHitParticles(x, y, color, count = 6) {
+function spawnHitParticles(x, y, color, count) {
+  count = count || 6;
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2;
     const sp = 1 + Math.random() * 3;
@@ -344,8 +261,8 @@ const powerUps = [
     apply: p => { p.speed *= 1.25; p.maxHp -= 15; p.hp = Math.min(p.hp, p.maxHp); } },
   { name: "Bala Rápida", buff: "+40% velocidade projétil", debuff: "-10 vida máxima",
     apply: p => { p.bulletSpeed *= 1.4; p.maxHp -= 10; p.hp = Math.min(p.hp, p.maxHp); } },
-  { name: "Carga Rápida", buff: "-30% kills pro especial", debuff: "-15 vida máxima",
-    apply: p => { WEAPONS[p.weaponKey || 'pistol'].killCost = Math.max(3, WEAPONS[p.weaponKey || 'pistol'].killCost * 0.7); p.maxHp -= 15; } },
+  { name: "Cura", buff: "Recupera 50 de vida", debuff: "-5 vida máxima",
+    apply: p => { p.hp = Math.min(p.maxHp, p.hp + 50); p.maxHp -= 5; } },
 ];
 
 function showPowerUpChoice() {
@@ -356,9 +273,9 @@ function showPowerUpChoice() {
   pool.forEach(pu => {
     const div = document.createElement('div');
     div.className = 'card';
-    div.innerHTML = `<h3>${pu.name}</h3>
-      <div class="buff">▲ ${pu.buff}</div>
-      <div class="debuff">▼ ${pu.debuff}</div>`;
+    div.innerHTML = '<h3>' + pu.name + '</h3>' +
+      '<div class="buff">▲ ' + pu.buff + '</div>' +
+      '<div class="debuff">▼ ' + pu.debuff + '</div>';
     div.onclick = () => {
       pu.apply(game.player);
       document.getElementById('powerup').style.display = 'none';
@@ -404,7 +321,6 @@ function spawnEnemy() {
   game.enemies.push(base);
 }
 
-// ===== TROCA DE ARMA =====
 function switchWeapon(key) {
   if (!WEAPONS[key]) return;
   game.weapon = key;
@@ -412,7 +328,6 @@ function switchWeapon(key) {
   game.screenFlash = 0.4;
 }
 
-// ===== ESPECIAL =====
 function useSpecial() {
   const w = WEAPONS[game.weapon];
   if (game.killCharge < w.killCost) return;
@@ -420,6 +335,31 @@ function useSpecial() {
   w.special(game.player, game);
   game.shake = 12;
   game.screenFlash = 0.7;
+}
+
+// ===== EXPLOSÃO =====
+function explode(x, y, radius, damage) {
+  game.shake = 10;
+  spawnHitParticles(x, y, '#fa5', 25);
+  game.enemies.forEach(e => {
+    if (Math.hypot(e.x - x, e.y - y) < radius) {
+      e.hp -= damage;
+      e.hitFlash = 8;
+    }
+  });
+  game.enemies = game.enemies.filter(e => {
+    if (e.hp <= 0) {
+      spawnHitParticles(e.x, e.y, e.color, 12);
+      game.score += 10 + game.wave;
+      game.killCharge++;
+      return false;
+    }
+    return true;
+  });
+  game.particles.push({
+    x, y, vx: 0, vy: 0, life: 20, maxLife: 20,
+    color: '#fa5', size: radius / 3, isExplosion: true, radius
+  });
 }
 
 // ===== UPDATE =====
@@ -446,18 +386,17 @@ function update() {
   p.y = Math.max(p.r, Math.min(H - p.r, p.y + dy * p.speed));
   resolveCircleObstacles(p);
 
-  // Tiro automático
+  // Tiro
   game.weaponCooldown--;
   if (game.weaponCooldown <= 0) {
     const angle = Math.atan2(game.mouseY - p.y, game.mouseX - p.x);
-    const count = w.bulletCount + (p.bulletCountBonus || 0);
+    const count = w.bulletCount;
     for (let i = 0; i < count; i++) {
       const spreadBase = (i - (count - 1) / 2) * 0.12;
       const randomSpread = (Math.random() - 0.5) * w.spread;
       const a = angle + spreadBase + randomSpread;
       game.bullets.push(makeBullet(p, a, w.bulletSpeed, w.bulletDamage, w.pierce));
     }
-    // overdrive da SMG
     let rate = w.fireRate;
     if (p.overdrive > 0) rate = Math.max(2, w.fireRate * 0.3);
     game.weaponCooldown = rate;
@@ -481,7 +420,6 @@ function update() {
     } else {
       game.wave++;
       if (game.wave % 5 === 0) changeBiome();
-      // desbloqueia arma nova a cada 3 ondas
       if (game.wave === 3) switchWeapon('shotgun');
       else if (game.wave === 6) switchWeapon('smg');
       else if (game.wave === 9) switchWeapon('sniper');
@@ -489,19 +427,17 @@ function update() {
     }
   }
 
-  // Update balas
+  // Balas
   game.bullets = game.bullets.filter(b => {
     b.life++;
     b.trail.push({ x: b.x, y: b.y });
     if (b.trail.length > 6) b.trail.shift();
     b.x += b.vx; b.y += b.vy;
 
-    // explosivo: some após 40 frames
     if (b.explosive && b.life > 40) {
       explode(b.x, b.y, b.radius, b.damage);
       return false;
     }
-
     for (const o of game.obstacles) {
       if (b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h) {
         if (b.explosive) explode(b.x, b.y, b.radius, b.damage);
@@ -512,7 +448,7 @@ function update() {
     return b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20;
   });
 
-  // Update inimigos
+  // Inimigos
   game.enemies.forEach(e => {
     if (e.hitFlash > 0) e.hitFlash--;
     e.wobble += 0.1;
@@ -528,18 +464,16 @@ function update() {
     }
   });
 
-  // Colisão bala x inimigo
+  // Bala x inimigo
   for (let i = game.bullets.length - 1; i >= 0; i--) {
     const b = game.bullets[i];
-    let removed = false;
     for (let j = game.enemies.length - 1; j >= 0; j--) {
       const e = game.enemies[j];
-      if (b.hit.includes(e)) continue;
+      if (b.hit.indexOf(e) !== -1) continue;
       if (Math.hypot(b.x - e.x, b.y - e.y) < e.r + b.r) {
         if (b.explosive) {
           explode(b.x, b.y, b.radius, b.damage);
           game.bullets.splice(i, 1);
-          removed = true;
           break;
         }
         e.hp -= b.damage;
@@ -550,17 +484,15 @@ function update() {
           spawnHitParticles(e.x, e.y, e.color, 14);
           game.enemies.splice(j, 1);
           game.score += 10 + game.wave;
-          // CARREGA O ESPECIAL
           game.killCharge++;
-          // solta a arma que estiver no inventário
         }
         if (b.pierce > 0) b.pierce--;
-        else { game.bullets.splice(i, 1); removed = true; break; }
+        else { game.bullets.splice(i, 1); break; }
       }
     }
   }
 
-  // Colisão jogador x inimigo
+  // Jogador x inimigo
   game.enemies.forEach(e => {
     if (Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
       p.hp -= e.damage * 0.3;
@@ -583,64 +515,40 @@ function update() {
 
   if (p.hp <= 0) game.gameOver = true;
 
-  // HUD de arma
+  // HUD arma
   const charged = game.killCharge >= w.killCost;
   const pct = Math.min(100, (game.killCharge / w.killCost) * 100);
-  const bar = document.getElementById('specialBar');
-  const fill = document.getElementById('specialFill');
-  fill.style.width = pct + '%';
-  bar.classList.toggle('ready', charged);
+  document.getElementById('specialFill').style.width = pct + '%';
+  document.getElementById('specialBar').classList.toggle('ready', charged);
   document.getElementById('specialText').textContent =
-    `${w.specialName}: ${Math.min(game.killCharge, w.killCost)}/${w.killCost} kills — ${w.specialDesc}${charged ? ' — [Q] PRONTO!' : ''}`;
-}
-
-// ===== EXPLOSÃO =====
-function explode(x, y, radius, damage) {
-  game.shake = 10;
-  spawnHitParticles(x, y, '#fa5', 25);
-  game.enemies.forEach(e => {
-    if (Math.hypot(e.x - x, e.y - y) < radius) {
-      e.hp -= damage;
-      e.hitFlash = 8;
-      if (e.hp <= 0) {
-        spawnHitParticles(e.x, e.y, e.color, 12);
-        game.score += 10 + game.wave;
-        game.killCharge++;
-      }
-    }
-  });
-  // remove mortos
-  game.enemies = game.enemies.filter(e => e.hp > 0);
-  // efeito visual
-  game.particles.push({
-    x, y, vx: 0, vy: 0, life: 20, maxLife: 20,
-    color: '#fa5', size: radius / 3, isExplosion: true, radius
-  });
+    w.specialName + ': ' + Math.min(game.killCharge, w.killCost) + '/' + w.killCost +
+    ' — ' + w.specialDesc + (charged ? ' — [Q] PRONTO!' : '');
 }
 
 // ===== RENDER =====
 function draw() {
   const biome = BIOMES[game.biomeIndex];
   const p = game.player;
+  const a = Math.atan2(game.mouseY - p.y, game.mouseX - p.x);
 
   ctx.save();
   if (game.shake > 0.5) {
     ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
   }
 
-  // fundo
+  // Fundo
   let bgColor = biome.bg;
   if (game.bgPulse > 0.05) bgColor = mixColors(biome.bg, '#ffffff', game.bgPulse * 0.6);
   ctx.fillStyle = bgColor;
   ctx.fillRect(-20, -20, W + 40, H + 40);
 
-  // grid
+  // Grid
   ctx.strokeStyle = biome.grid;
   ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
   for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
-  // obstáculos
+  // Obstáculos
   game.obstacles.forEach(o => {
     drawSprite('obstacle', o.x + o.w/2, o.y + o.h/2, Math.max(o.w, o.h), 0, () => {
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -650,15 +558,10 @@ function draw() {
       ctx.fillStyle = o.edge;
       ctx.fillRect(o.x, o.y, o.w, 3);
       ctx.fillRect(o.x, o.y, 3, o.h);
-      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < o.w; i += 12) {
-        ctx.beginPath(); ctx.moveTo(o.x + i, o.y); ctx.lineTo(o.x + i, o.y + o.h); ctx.stroke();
-      }
     });
   });
 
-  // partículas
+  // Partículas
   game.particles.forEach(pt => {
     const alpha = pt.life / pt.maxLife;
     ctx.globalAlpha = alpha;
@@ -677,40 +580,168 @@ function draw() {
   });
   ctx.globalAlpha = 1;
 
-  // projéteis
+  // Balas
   game.bullets.forEach(b => {
     drawSprite('bullet', b.x, b.y, 14, b.angle, () => {
-      // rastro
       for (let i = 0; i < b.trail.length; i++) {
         const t = b.trail[i];
-        const a = (i / b.trail.length) * 0.7;
-        ctx.globalAlpha = a;
+        const alpha = (i / b.trail.length) * 0.7;
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = b.explosive ? '#fa5' : '#8af';
         ctx.beginPath();
         ctx.arc(t.x, t.y, 2 + i * 0.4, 0, Math.PI*2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
-      // núcleo
       let coreColor = '#cfefff';
       if (b.type === 'special') coreColor = '#ff8';
       if (b.type === 'explosive') coreColor = '#fa5';
       if (b.type === 'pierce') coreColor = '#f8f';
       ctx.fillStyle = coreColor;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
-      // glow
       ctx.fillStyle = b.explosive ? 'rgba(255,170,80,0.4)' : 'rgba(120,180,255,0.35)';
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2, 0, Math.PI*2); ctx.fill();
     });
   });
 
-  // inimigos
+  // Inimigos
   game.enemies.forEach(e => {
     let spriteKey = 'enemyBasic';
     if (e.type === 'fast') spriteKey = 'enemyFast';
     if (e.type === 'tank') spriteKey = 'enemyTank';
-
     drawSprite(spriteKey, e.x, e.y, e.r * 2.2, 0, () => {
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath(); ctx.arc(e.x + 3, e.y + 3, e.r, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e
+      ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2;
+      const pulse = 1 + Math.sin(e.wobble) * 0.08;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r * pulse, 0, Math.PI*2); ctx.stroke();
+      const ea = Math.atan2(p.y - e.y, p.x - e.x);
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(e.x + Math.cos(ea - 0.4) * e.r * 0.4, e.y + Math.sin(ea - 0.4) * e.r * 0.4, e.r * 0.18, 0, Math.PI*2);
+      ctx.arc(e.x + Math.cos(ea + 0.4) * e.r * 0.4, e.y + Math.sin(ea + 0.4) * e.r * 0.4, e.r * 0.18, 0, Math.PI*2);
+      ctx.fill();
+    });
+    // Barra de vida
+    const hpPct = Math.max(0, e.hp / (20 + game.wave * 3));
+    ctx.fillStyle = '#000';
+    ctx.fillRect(e.x - e.r, e.y - e.r - 8, e.r * 2, 4);
+    ctx.fillStyle = '#f66';
+    ctx.fillRect(e.x - e.r, e.y - e.r - 8, e.r * 2 * hpPct, 4);
+  });
+
+  // Jogador
+  drawSprite('player', p.x, p.y, p.r * 2.2, a, () => {
+    const pColor = p.hitFlash > 0 ? '#fff' : '#6f6';
+    ctx.fillStyle = 'rgba(100,255,100,0.15)';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.arc(p.x + 2, p.y + 3, p.r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = pColor;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#2a6a2a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x + Math.cos(a) * 20, p.y + Math.sin(a) * 20);
+    ctx.stroke();
+  });
+
+  // Flash de tela
+  if (game.screenFlash > 0.02) {
+    ctx.fillStyle = 'rgba(255,255,255,' + (game.screenFlash * 0.4) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  ctx.restore();
+
+  // Game over
+  if (game.gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f66';
+    ctx.font = 'bold 48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('VOCÊ MORREU', W/2, H/2 - 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText('Score: ' + game.score + ' | Onda: ' + game.wave, W/2, H/2 + 30);
+    ctx.fillText('Pressione ENTER para reiniciar', W/2, H/2 + 70);
+  }
+
+  // HUD
+  document.getElementById('hp').textContent = Math.max(0, Math.floor(p.hp)) + '/' + p.maxHp;
+  document.getElementById('score').textContent = game.score;
+  document.getElementById('wave').textContent = game.wave;
+  document.getElementById('enemies').textContent = game.enemies.length;
+  document.getElementById('biome').textContent = biome.name;
+}
+
+function mixColors(c1, c2, t) {
+  const h1 = parseInt(c1.slice(1), 16);
+  const h2 = parseInt(c2.slice(1), 16);
+  const r = Math.round(((h1 >> 16) & 255) * (1-t) + ((h2 >> 16) & 255) * t);
+  const g = Math.round(((h1 >> 8) & 255) * (1-t) + ((h2 >> 8) & 255) * t);
+  const b = Math.round((h1 & 255) * (1-t) + (h2 & 255) * t);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+// ===== INPUT =====
+canvas.focus();
+canvas.addEventListener('click', () => canvas.focus());
+
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k) !== -1) e.preventDefault();
+  game.keys[k] = true;
+  if (game.gameOver && e.key === 'Enter') {
+    initGame();
+    startWave();
+    document.getElementById('weaponName').textContent = WEAPONS[game.weapon].name;
+    canvas.focus();
+  }
+  if (k === 'q') useSpecial();
+  if (k === '1') switchWeapon('pistol');
+  if (k === '2') switchWeapon('shotgun');
+  if (k === '3') switchWeapon('smg');
+  if (k === '4') switchWeapon('sniper');
+});
+
+document.addEventListener('keyup', e => {
+  game.keys[e.key.toLowerCase()] = false;
+});
+
+window.addEventListener('blur', () => { game.keys = {}; });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  game.mouseX = (e.clientX - rect.left) * scaleX;
+  game.mouseY = (e.clientY - rect.top) * scaleY;
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 2) useSpecial();
+});
+
+// ===== LOOP =====
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+initGame();
+startWave();
+document.getElementById('weaponName').textContent = WEAPONS[game.weapon].name;
+loop();
+</script>
+</body>
+</html>
