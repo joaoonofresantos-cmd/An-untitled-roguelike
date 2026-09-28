@@ -62,7 +62,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
-// ===== SPRITES (deixe null até ter os arquivos) =====
+// ===== SPRITES =====
 const SPRITES = {
   player: null,
   enemyBasic: null,
@@ -71,6 +71,82 @@ const SPRITES = {
   bullet: null,
   obstacle: null,
 };
+
+// Configuração de spritesheets (imagens com vários frames lado a lado)
+const SPRITE_CONFIG = {
+  player: {
+    src: 'sprites/player.png',
+    frameW: 80,      // largura de cada frame
+    frameH: 80,      // altura de cada frame
+    frameCount: 3,   // quantos frames tem na imagem
+    fps: 6,          // velocidade da animação (frames por segundo)
+  },
+};
+
+// Carrega as imagens
+function loadSprite(key, src, frameW, frameH, frameCount, fps) {
+  const img = new Image();
+  img.onload = () => {
+    SPRITES[key] = img;
+    SPRITE_CONFIG[key] = SPRITE_CONFIG[key] || {};
+    SPRITE_CONFIG[key].frameW = frameW;
+    SPRITE_CONFIG[key].frameH = frameH;
+    SPRITE_CONFIG[key].frameCount = frameCount;
+    SPRITE_CONFIG[key].fps = fps;
+    console.log('Sprite carregado:', key);
+  };
+  img.onerror = () => console.warn('Falha ao carregar sprite:', src);
+  img.src = src;
+}
+
+// Ativa o player (descomente quando o arquivo estiver na pasta sprites/)
+loadSprite('player', 'sprites/player.png', 80, 80, 3, 6);
+// loadSprite('enemyBasic', 'sprites/enemy_basic.png', 64, 64, 4, 8);
+// loadSprite('bullet', 'sprites/bullet.png', 16, 16, 1, 1);
+
+// ===== CONTROLE DE ANIMAÇÃO =====
+let animTime = 0; // tempo global de animação (frames)
+
+// Desenha sprite estático (1 frame só, ou sprite que não anima)
+function drawSprite(key, x, y, size, angle, fallbackFn) {
+  const img = SPRITES[key];
+  if (img) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (angle !== undefined) ctx.rotate(angle);
+    ctx.drawImage(img, -size/2, -size/2, size, size);
+    ctx.restore();
+  } else {
+    fallbackFn();
+  }
+}
+
+// Desenha sprite animado (spritesheet com vários frames)
+function drawAnimatedSprite(key, x, y, size, fallbackFn) {
+  const img = SPRITES[key];
+  const cfg = SPRITE_CONFIG[key];
+
+  if (!img || !cfg || !cfg.frameCount) {
+    fallbackFn();
+    return;
+  }
+
+  // Calcula o frame atual baseado no tempo
+  const totalFrames = cfg.frameCount;
+  const currentFrame = Math.floor(animTime * cfg.fps / 60) % totalFrames;
+  const sx = currentFrame * cfg.frameW;
+  const sy = 0;
+
+  ctx.save();
+  ctx.translate(x, y);
+  // desenha centralizado no ponto (x, y)
+  ctx.drawImage(
+    img,
+    sx, sy, cfg.frameW, cfg.frameH,   // source (qual pedaço da imagem)
+    -size/2, -size/2, size, size       // destino (onde e qual tamanho)
+  );
+  ctx.restore();
+}
 
 function drawSprite(key, x, y, size, angle, fallbackFn) {
   const img = SPRITES[key];
