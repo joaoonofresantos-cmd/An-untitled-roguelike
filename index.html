@@ -87,6 +87,12 @@ const W = canvas.width, H = canvas.height;
 const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 // ============================================================
+// DIFICULDADE GLOBAL (ajuste uma linha e muda tudo)
+// 0.7 = fácil | 1.0 = normal | 1.3 = difícil
+// ============================================================
+const DIFFICULTY = 1.0;
+
+// ============================================================
 // SPRITES
 // ============================================================
 const SPRITES = {
@@ -139,7 +145,7 @@ const CHARACTERS = {
   ninja: {
     name: "Ninja", role: "Corpo a corpo, muito rápido",
     color: "#a4f", accentColor: "#d8f",
-    hp: 9999, speed: 4.4,
+    hp: 80, speed: 4.4,
     fireRate: 14, bulletSpeed: 8, bulletDamage: 22,
     bulletCount: 1, spread: 0, pierce: 0, bulletLife: 12,
     isMelee: true, killCost: 6,
@@ -202,30 +208,20 @@ const BIOMES = [
 ];
 
 // ============================================================
-// BOSSES — com fases por HP
-// ============================================================
-// Cada boss tem 3 "ataques" (padrões). Eles são usados conforme
-// a fase de HP:
-//   Fase 1 (100%-66% HP): usa só o ataque 1
-//   Fase 2 (66%-33% HP): usa ataques 1 e 2
-//   Fase 3 (33%-0% HP): usa os 3, mais rápido
+// BOSSES
 // ============================================================
 const BOSSES = [
   {
-    key: 'cavaleiro',
-    name: "Cavaleiro Caído",
+    key: 'cavaleiro', name: "Cavaleiro Caído",
     color: '#e8e0d0', accentColor: '#a89878',
     r: 40, baseHp: 400, speed: 2.2,
     attacks: [
-      { // Ataque 0: Dash
-        name: 'Dash',
-        duration: 90, telegraph: 30,
+      { name: 'Dash', duration: 90, telegraph: 30,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t === 0) {
             const a = Math.atan2(p.y - b.y, p.x - b.x);
-            b.dashVx = Math.cos(a) * 12;
-            b.dashVy = Math.sin(a) * 12;
+            b.dashVx = Math.cos(a) * 12; b.dashVy = Math.sin(a) * 12;
           }
           if (t < 30) {
             b.x = Math.max(b.r, Math.min(W - b.r, b.x + b.dashVx));
@@ -233,9 +229,7 @@ const BOSSES = [
           }
         }
       },
-      { // Ataque 1: Leque
-        name: 'Leque',
-        duration: 80, telegraph: 40,
+      { name: 'Leque', duration: 80, telegraph: 40,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t % 20 === 0 && t < 60) {
@@ -245,15 +239,13 @@ const BOSSES = [
               g.enemyBullets.push({
                 x: b.x, y: b.y,
                 vx: Math.cos(a) * 4, vy: Math.sin(a) * 4,
-                r: 7, damage: 12, life: 200,
+                r: 7, damage: 8, life: 200,
               });
             }
           }
         }
       },
-      { // Ataque 2: Teleporte
-        name: 'Teleporte',
-        duration: 70, telegraph: 25,
+      { name: 'Teleporte', duration: 70, telegraph: 25,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t === 0) {
@@ -271,14 +263,11 @@ const BOSSES = [
     ]
   },
   {
-    key: 'feiticeira',
-    name: "Feiticeira das Sombras",
+    key: 'feiticeira', name: "Feiticeira das Sombras",
     color: '#c060e0', accentColor: '#f0a0ff',
     r: 34, baseHp: 320, speed: 2.8,
     attacks: [
-      { // Ataque 0: Espiral
-        name: 'Espiral',
-        duration: 120, telegraph: 30,
+      { name: 'Espiral', duration: 120, telegraph: 30,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t % 8 === 0) {
@@ -288,15 +277,13 @@ const BOSSES = [
               g.enemyBullets.push({
                 x: b.x, y: b.y,
                 vx: Math.cos(a) * 3.5, vy: Math.sin(a) * 3.5,
-                r: 6, damage: 10, life: 250,
+                r: 6, damage: 7, life: 250,
               });
             }
           }
         }
       },
-      { // Ataque 1: Invocação
-        name: 'Invocação',
-        duration: 60, telegraph: 25,
+      { name: 'Invocação', duration: 60, telegraph: 25,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t === 0) {
@@ -308,9 +295,7 @@ const BOSSES = [
           }
         }
       },
-      { // Ataque 2: Raio
-        name: 'Raio',
-        duration: 100, telegraph: 50,
+      { name: 'Raio', duration: 100, telegraph: 50,
         update: (b, p, g, t, tele) => {
           if (tele) {
             b.hitFlash = 1;
@@ -321,10 +306,9 @@ const BOSSES = [
             const a = b.laserAngle || 0;
             for (let d = 0; d < 600; d += 15) {
               g.enemyBullets.push({
-                x: b.x + Math.cos(a) * d,
-                y: b.y + Math.sin(a) * d,
+                x: b.x + Math.cos(a) * d, y: b.y + Math.sin(a) * d,
                 vx: Math.cos(a) * 8, vy: Math.sin(a) * 8,
-                r: 9, damage: 14, life: 60,
+                r: 9, damage: 10, life: 60,
               });
             }
             g.shake = 15;
@@ -334,20 +318,16 @@ const BOSSES = [
     ]
   },
   {
-    key: 'devorador',
-    name: "Devorador",
+    key: 'devorador', name: "Devorador",
     color: '#e05030', accentColor: '#ffa060',
     r: 46, baseHp: 500, speed: 2.0,
     attacks: [
-      { // Ataque 0: Investida
-        name: 'Investida',
-        duration: 100, telegraph: 35,
+      { name: 'Investida', duration: 100, telegraph: 35,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t === 0) {
             const a = Math.atan2(p.y - b.y, p.x - b.x);
-            b.dashVx = Math.cos(a) * 10;
-            b.dashVy = Math.sin(a) * 10;
+            b.dashVx = Math.cos(a) * 10; b.dashVy = Math.sin(a) * 10;
           }
           if (t < 35) {
             b.x = Math.max(b.r, Math.min(W - b.r, b.x + b.dashVx));
@@ -355,9 +335,7 @@ const BOSSES = [
           }
         }
       },
-      { // Ataque 1: Cuspe
-        name: 'Cuspe',
-        duration: 90, telegraph: 30,
+      { name: 'Cuspe', duration: 90, telegraph: 30,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           if (t % 15 === 0) {
@@ -368,15 +346,13 @@ const BOSSES = [
               g.enemyBullets.push({
                 x: b.x, y: b.y,
                 vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-                r: 5, damage: 8, life: 200,
+                r: 5, damage: 6, life: 200,
               });
             }
           }
         }
       },
-      { // Ataque 2: Caçada
-        name: 'Caçada',
-        duration: 120, telegraph: 20,
+      { name: 'Caçada', duration: 120, telegraph: 20,
         update: (b, p, g, t, tele) => {
           if (tele) { b.hitFlash = 1; return; }
           const a = Math.atan2(p.y - b.y, p.x - b.x);
@@ -390,16 +366,15 @@ const BOSSES = [
 
 function scaleBoss(baseBoss, wave) {
   const tier = Math.max(1, Math.floor(wave / 12));
-  const mult = 1 + (tier - 1) * 0.6;
+  const mult = 1 + (tier - 1) * 0.35;
   return {
     ...baseBoss,
     hp: Math.round(baseBoss.baseHp * mult),
     maxHp: Math.round(baseBoss.baseHp * mult),
-    speed: baseBoss.speed * (1 + (tier - 1) * 0.08),
+    speed: baseBoss.speed * (1 + (tier - 1) * 0.05),
   };
 }
 
-// Qual ataque o boss deve usar baseado na fase de HP
 function getBossPhase(b) {
   const pct = b.hp / b.maxHp;
   if (pct > 0.66) return { index: 1, name: "Fase I", attacksAllowed: 1, speedMult: 1.0 };
@@ -434,6 +409,7 @@ function initGame(charKey) {
     bossActive: null,
     bossDefeatedThisWave: false,
     bossSpawnedThisWave: false,
+    powerupPending: false,
     keys: {},
     wave: 1, waveEnemiesLeft: 0, waveSpawning: false, spawnTimer: 0,
     score: 0,
@@ -529,7 +505,7 @@ function drawAnimatedSprite(key, x, y, size, fallbackFn) {
 // POWER-UPS
 // ============================================================
 const powerUps = [
-  { name: "Vampírico", buff: "+8% lifesteal (cura ao causar dano)", debuff: "-15% dano",
+  { name: "Vampírico", buff: "+8% lifesteal", debuff: "-15% dano",
     apply: p => { p.lifesteal += 0.08; p.damageMult *= 0.85; } },
   { name: "Velocidade", buff: "+25% velocidade", debuff: "-15 vida máxima",
     apply: p => { p.speed *= 1.25; p.maxHp -= 15; p.hp = Math.min(p.hp, p.maxHp); } },
@@ -562,6 +538,7 @@ function showPowerUpChoice() {
       pu.apply(game.player);
       document.getElementById('powerup').style.display = 'none';
       game.paused = false;
+      game.powerupPending = false;
       game.wave++;
       game.bossDefeatedThisWave = false;
       game.bossSpawnedThisWave = false;
@@ -578,7 +555,7 @@ function showPowerUpChoice() {
 // ONDAS
 // ============================================================
 function startWave() {
-  game.waveEnemiesLeft = 3 + Math.floor(game.wave * 1.5);
+  game.waveEnemiesLeft = 3 + Math.floor(game.wave * 1.0);
   game.waveSpawning = true;
   game.spawnTimer = 0;
 }
@@ -601,31 +578,39 @@ function spawnEnemy() {
   if (game.wave >= 8 && roll >= 0.78 && roll < 0.85) type = 'bomber';
 
   const base = {
-    x, y, hp: 20 + game.wave * 3, r: 14,
-    speed: 1.2 + game.wave * 0.05,
-    color: '#f55', damage: 8, type,
+    x, y,
+    hp: (18 + game.wave * 1.8) * DIFFICULTY,
+    r: 14,
+    speed: (1.0 + game.wave * 0.025) * DIFFICULTY,
+    color: '#f55',
+    damage: 6 * DIFFICULTY,
+    type,
     hitFlash: 0, wobble: Math.random() * Math.PI * 2,
   };
 
   if (type === 'fast') {
-    Object.assign(base, { speed: base.speed * 1.8, hp: base.hp * 0.6, r: 10, color: '#fa5' });
+    Object.assign(base, { speed: base.speed * 1.6, hp: base.hp * 0.6, r: 10, color: '#fa5', damage: base.damage * 0.8 });
   } else if (type === 'tank') {
-    Object.assign(base, { speed: base.speed * 0.6, hp: base.hp * 3, r: 20, color: '#a4f', damage: 15 });
+    Object.assign(base, { speed: base.speed * 0.55, hp: base.hp * 2.5, r: 20, color: '#a4f', damage: base.damage * 1.6 });
   } else if (type === 'stalker') {
     Object.assign(base, {
-      speed: base.speed * 1.1, hp: base.hp * 1.5, r: 13, color: '#3a3a5a', damage: 18,
+      speed: base.speed * 0.9, hp: base.hp * 1.3, r: 13, color: '#3a3a5a',
+      damage: base.damage * 2.0, maxSpeed: 4.5,
       stalkState: 'hiding', hideTarget: null, attackRange: 180, hidden: true,
+      attackCooldown: 0,
     });
   } else if (type === 'swarm') {
-    Object.assign(base, { speed: base.speed * 2.2, hp: base.hp * 0.25, r: 7, color: '#f0a', damage: 4 });
+    Object.assign(base, { speed: base.speed * 1.9, hp: base.hp * 0.25, r: 7, color: '#f0a', damage: base.damage * 0.5 });
   } else if (type === 'shooter') {
     Object.assign(base, {
-      speed: base.speed * 0.7, hp: base.hp * 0.9, r: 12, color: '#fa5', damage: 6,
-      shootCooldown: 60 + Math.random() * 30,
+      speed: base.speed * 0.65, hp: base.hp * 0.9, r: 12, color: '#fa5',
+      damage: base.damage * 0.8,
+      shootCooldown: 100 + Math.random() * 40,
     });
   } else if (type === 'bomber') {
     Object.assign(base, {
-      speed: base.speed * 1.4, hp: base.hp * 0.7, r: 14, color: '#f80', damage: 0, fuse: -1,
+      speed: base.speed * 1.2, hp: base.hp * 0.7, r: 14, color: '#f80',
+      damage: 0, fuse: -1, blastDamage: 18 * DIFFICULTY,
     });
   }
 
@@ -636,12 +621,13 @@ function spawnBoss() {
   const tier = Math.max(1, Math.floor(game.wave / 12));
   const baseBoss = BOSSES[(tier - 1) % BOSSES.length];
   const boss = scaleBoss(baseBoss, game.wave);
+  boss.hp = Math.round(boss.hp * DIFFICULTY);
+  boss.maxHp = Math.round(boss.maxHp * DIFFICULTY);
 
   const b = {
     ...boss,
     x: W / 2, y: 100,
-    attackIndex: 0,
-    attackTime: 0,
+    attackIndex: 0, attackTime: 0,
     hitFlash: 0, wobble: 0,
     isBoss: true,
     dashVx: 0, dashVy: 0,
@@ -657,9 +643,10 @@ function spawnBoss() {
 function spawnMinionAt(x, y, g) {
   g.enemies.push({
     x, y,
-    hp: 15 + g.wave * 2, r: 8,
-    speed: 1.8 + g.wave * 0.03,
-    color: '#ff40a0', damage: 6, type: 'minion',
+    hp: (12 + g.wave * 1.2) * DIFFICULTY,
+    r: 8,
+    speed: (1.6 + g.wave * 0.02) * DIFFICULTY,
+    color: '#ff40a0', damage: 5 * DIFFICULTY, type: 'minion',
     hitFlash: 0, wobble: Math.random() * Math.PI * 2,
   });
 }
@@ -867,13 +854,12 @@ function update() {
     if (game.spawnTimer <= 0 && game.waveEnemiesLeft > 0) {
       spawnEnemy();
       game.waveEnemiesLeft--;
-      game.spawnTimer = Math.max(8, 30 - game.wave);
+      game.spawnTimer = Math.max(20, 45 - game.wave * 0.5);
     }
     if (game.waveEnemiesLeft <= 0) game.waveSpawning = false;
   }
 
-  // ===== MÁQUINA DE ESTADOS: BOSS / ONDA =====
-  // Detecta se o boss morreu (não está mais na lista)
+  // Máquina de estados do boss/onda
   if (game.bossActive && game.enemies.indexOf(game.bossActive) === -1) {
     game.bossActive = null;
     game.bossDefeatedThisWave = true;
@@ -886,31 +872,19 @@ function update() {
     if (isBossWave && !game.bossSpawnedThisWave) {
       spawnBoss();
     } else if (isBossWave && game.bossDefeatedThisWave) {
-      // Boss morto → avança onda
       game.wave++;
       game.bossDefeatedThisWave = false;
       game.bossSpawnedThisWave = false;
       if (game.wave % 5 === 0) changeBiome();
       startWave();
-    } else if (!isBossWave && game.wave % 10 === 0 && !game.waveSpawning && game.enemies.length === 0 && game.wave % 12 !== 0) {
-      // Power-up a cada 10 (mas não em onda de boss)
-      // Evita chamar múltiplas vezes checando um flag implícito
-      if (!game.powerupPending) {
-        game.powerupPending = true;
-        showPowerUpChoice();
-      }
+    } else if (!isBossWave && game.wave % 10 === 0 && !game.powerupPending) {
+      game.powerupPending = true;
+      showPowerUpChoice();
     } else if (!isBossWave && !game.powerupPending) {
       game.wave++;
-      game.bossDefeatedThisWave = false;
-      game.bossSpawnedThisWave = false;
       if (game.wave % 5 === 0) changeBiome();
       startWave();
     }
-  }
-
-  // Limpa o flag de powerup quando ele é resolvido
-  if (game.powerupPending && !game.paused) {
-    game.powerupPending = false;
   }
 
   // Balas do player
@@ -932,10 +906,7 @@ function update() {
               game.bossDefeatedThisWave = true;
               game.shake = 25;
               game.screenFlash = 1;
-            } else {
-              game.score += 10 + game.wave;
-              game.killCharge++;
-            }
+            } else { game.score += 10 + game.wave; game.killCharge++; }
             spawnHitParticles(e.x, e.y, e.color, 14);
             game.enemies.splice(k, 1);
           }
@@ -960,10 +931,7 @@ function update() {
               game.bossDefeatedThisWave = true;
               game.shake = 25;
               game.screenFlash = 1;
-            } else {
-              game.score += 10 + game.wave;
-              game.killCharge++;
-            }
+            } else { game.score += 10 + game.wave; game.killCharge++; }
             spawnHitParticles(e.x, e.y, e.color, 14);
             game.enemies.splice(k, 1);
           }
@@ -1024,7 +992,7 @@ function update() {
         spawnHitParticles(eb.x, eb.y, '#8ff', 6);
         return false;
       }
-      p.hp -= eb.damage;
+      p.hp -= eb.damage * DIFFICULTY;
       p.hitFlash = 8;
       game.shake = 8;
       spawnHitParticles(eb.x, eb.y, '#f66', 8);
@@ -1047,35 +1015,29 @@ function update() {
     // BOSS
     if (e.isBoss) {
       const phase = getBossPhase(e);
-      const maxAttacks = phase.attacksAllowed;
-      const attack = e.attacks[e.attackIndex % maxAttacks];
-
+      const attack = e.attacks[e.attackIndex % phase.attacksAllowed];
       e.attackTime++;
       const tele = e.attackTime <= attack.telegraph;
       const t = e.attackTime - attack.telegraph;
-      const speedMult = phase.speedMult;
 
-      // Boss persegue o player levemente (mais agressivo em fases avançadas)
       if (!tele && attack.name !== 'Dash' && attack.name !== 'Investida' && attack.name !== 'Caçada' && attack.name !== 'Teleporte') {
         const a = Math.atan2(p.y - e.y, p.x - e.x);
         const dP = Math.hypot(p.x - e.x, p.y - e.y);
         if (dP > 200) {
-          e.x += Math.cos(a) * e.speed * 0.5 * speedMult;
-          e.y += Math.sin(a) * e.speed * 0.5 * speedMult;
+          e.x += Math.cos(a) * e.speed * 0.5 * phase.speedMult;
+          e.y += Math.sin(a) * e.speed * 0.5 * phase.speedMult;
         }
       }
-
-      attack.update(e, p, game, Math.max(0, t), tele, speedMult);
+      attack.update(e, p, game, Math.max(0, t), tele, phase.speedMult);
 
       if (e.attackTime >= attack.duration + attack.telegraph) {
-        e.attackIndex = (e.attackIndex + 1) % maxAttacks;
+        e.attackIndex = (e.attackIndex + 1) % phase.attacksAllowed;
         e.attackTime = 0;
       }
 
-      // Dano de contato do boss
       if (p.hitFlash === 0 && Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
         if (!(p.dodgeChance && Math.random() < p.dodgeChance)) {
-          p.hp -= 20;
+          p.hp -= 12 * DIFFICULTY;
           p.hitFlash = 12;
           game.shake = 15;
           const a = Math.atan2(p.y - e.y, p.x - e.x);
@@ -1089,16 +1051,28 @@ function update() {
     // STALKER
     if (e.type === 'stalker') {
       const dP = Math.hypot(p.x - e.x, p.y - e.y);
+      if (e.attackCooldown > 0) e.attackCooldown--;
+
       if (e.stalkState === 'hiding' && dP < e.attackRange) {
-        e.stalkState = 'attacking'; e.hidden = false; e.speed *= 1.6;
+        e.stalkState = 'attacking'; e.hidden = false;
         spawnHitParticles(e.x, e.y, '#f0f', 10);
       }
       if (e.stalkState === 'attacking' && dP > e.attackRange * 2.5) {
-        e.stalkState = 'hiding'; e.hidden = true; e.speed /= 1.6; e.hideTarget = null;
+        e.stalkState = 'hiding'; e.hidden = true; e.hideTarget = null;
       }
+
       if (e.stalkState === 'attacking') {
-        const a = Math.atan2(p.y - e.y, p.x - e.x);
-        e.x += Math.cos(a) * e.speed; e.y += Math.sin(a) * e.speed;
+        if (dP < p.r + e.r + 4) {
+          // Recua em vez de colar
+          const a = Math.atan2(e.y - p.y, e.x - p.x);
+          e.x += Math.cos(a) * 3;
+          e.y += Math.sin(a) * 3;
+        } else {
+          const a = Math.atan2(p.y - e.y, p.x - e.x);
+          const sp = Math.min(e.speed, e.maxSpeed);
+          e.x += Math.cos(a) * sp;
+          e.y += Math.sin(a) * sp;
+        }
         resolveCircleObstacles(e);
       } else {
         if (!e.hideTarget) {
@@ -1118,8 +1092,8 @@ function update() {
           const dH = Math.hypot(e.hideTarget.x - e.x, e.hideTarget.y - e.y);
           if (dH < 8) e.hideTarget = null;
           else {
-            e.x += Math.cos(a) * e.speed * 0.8;
-            e.y += Math.sin(a) * e.speed * 0.8;
+            e.x += Math.cos(a) * e.speed * 0.7;
+            e.y += Math.sin(a) * e.speed * 0.7;
             resolveCircleObstacles(e);
           }
         }
@@ -1135,13 +1109,13 @@ function update() {
       else if (dP < 180) { e.x -= Math.cos(a) * e.speed * 0.6; e.y -= Math.sin(a) * e.speed * 0.6; }
       resolveCircleObstacles(e);
       e.shootCooldown--;
-      if (e.shootCooldown <= 0 && dP < 400) {
+      if (e.shootCooldown <= 0 && dP < 320) {
         game.enemyBullets.push({
           x: e.x, y: e.y,
           vx: Math.cos(a) * 4, vy: Math.sin(a) * 4,
-          r: 6, damage: 10, life: 200,
+          r: 6, damage: 6 * DIFFICULTY, life: 200,
         });
-        e.shootCooldown = 90;
+        e.shootCooldown = 120;
       }
       return;
     }
@@ -1152,15 +1126,15 @@ function update() {
       const dP = Math.hypot(p.x - e.x, p.y - e.y);
       e.x += Math.cos(a) * e.speed; e.y += Math.sin(a) * e.speed;
       resolveCircleObstacles(e);
-      if (e.fuse === -1 && dP < 100) e.fuse = 45;
+      if (e.fuse === -1 && dP < 90) e.fuse = 45;
       if (e.fuse > 0) {
         e.fuse--;
         e.color = e.fuse % 6 < 3 ? '#fff' : '#f80';
         if (e.fuse === 0) {
           spawnHitParticles(e.x, e.y, '#f80', 30);
-          if (Math.hypot(p.x - e.x, p.y - e.y) < 120) {
+          if (Math.hypot(p.x - e.x, p.y - e.y) < 100) {
             if (!(p.dodgeChance && Math.random() < p.dodgeChance)) {
-              p.hp -= 25; p.hitFlash = 10;
+              p.hp -= e.blastDamage; p.hitFlash = 10;
             }
           }
           game.shake = 12;
@@ -1184,7 +1158,7 @@ function update() {
     }
   });
 
-  // Bala x inimigo (normal)
+  // Bala x inimigo
   for (let i = game.bullets.length - 1; i >= 0; i--) {
     const b = game.bullets[i];
     if (b.isDashAoE || b.isSlash) continue;
@@ -1207,10 +1181,7 @@ function update() {
             game.bossDefeatedThisWave = true;
             game.shake = 25;
             game.screenFlash = 1;
-          } else {
-            game.score += 10 + game.wave;
-            game.killCharge++;
-          }
+          } else { game.score += 10 + game.wave; game.killCharge++; }
           spawnHitParticles(e.x, e.y, e.color, 14);
           game.enemies.splice(j, 1);
         }
@@ -1224,14 +1195,18 @@ function update() {
   if (p.hitFlash === 0) {
     game.enemies.forEach(e => {
       if (e.isBoss) return;
-      if (Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
+      const dP = Math.hypot(p.x - e.x, p.y - e.y);
+      if (dP < p.r + e.r) {
         if (p.dodgeChance && Math.random() < p.dodgeChance) return;
-        p.hp -= e.damage * 0.3;
-        p.hitFlash = 8;
+        p.hp -= Math.max(4, e.damage * 0.5);
+        p.hitFlash = 12;
         game.shake = 6;
-        const a = Math.atan2(e.y - p.y, e.x - p.x);
-        e.x += Math.cos(a) * 5;
-        e.y += Math.sin(a) * 5;
+        const a = Math.atan2(p.y - e.y, p.x - e.x);
+        p.x += Math.cos(a) * 12;
+        p.y += Math.sin(a) * 12;
+        e.x -= Math.cos(a) * 12;
+        e.y -= Math.sin(a) * 12;
+        resolveCircleObstacles(p);
         resolveCircleObstacles(e);
       }
     });
@@ -1310,8 +1285,7 @@ function draw() {
     if (b.isSlash) {
       const alpha = 1 - (b.life / b.maxLife);
       ctx.save();
-      ctx.translate(b.x, b.y);
-      ctx.rotate(b.angle);
+      ctx.translate(b.x, b.y); ctx.rotate(b.angle);
       ctx.globalAlpha = alpha;
       const grad = ctx.createLinearGradient(-b.w/2, 0, b.w/2, 0);
       grad.addColorStop(0, 'rgba(180,140,255,0)');
@@ -1319,11 +1293,9 @@ function draw() {
       grad.addColorStop(1, 'rgba(180,140,255,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
-      ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-b.w/2, 0); ctx.lineTo(b.w/2, 0); ctx.stroke();
-      ctx.restore();
-      ctx.globalAlpha = 1;
+      ctx.restore(); ctx.globalAlpha = 1;
       return;
     }
     if (b.isDashAoE) {
@@ -1361,13 +1333,11 @@ function draw() {
   });
 
   game.enemies.forEach(e => {
-    // BOSS
     if (e.isBoss) {
       const phase = getBossPhase(e);
       const attack = e.attacks[e.attackIndex % phase.attacksAllowed];
       const tele = e.attackTime <= attack.telegraph;
 
-      // Aura do telegraph (mais forte em fases avançadas)
       if (tele) {
         ctx.globalAlpha = 0.3 + Math.sin(e.attackTime * 0.6) * 0.3;
         ctx.fillStyle = phase.index === 3 ? '#f00' : phase.index === 2 ? '#f80' : '#fa0';
@@ -1378,7 +1348,6 @@ function draw() {
       ctx.beginPath(); ctx.arc(e.x + 4, e.y + 5, e.r, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = e.hitFlash > 0 && tele ? '#fff' : e.color;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
-      // Anel do accent, muda de cor com a fase
       ctx.strokeStyle = phase.index === 3 ? '#f00' : phase.index === 2 ? '#f80' : e.accentColor;
       ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI*2); ctx.stroke();
@@ -1394,26 +1363,20 @@ function draw() {
       ctx.arc(e.x + Math.cos(ea + 0.5) * e.r * 0.5, e.y + Math.sin(ea + 0.5) * e.r * 0.5, e.r * 0.15, 0, Math.PI*2);
       ctx.fill();
 
-      // Barra de vida gigante
       const barW = W - 100, barX = 50, barY = 30;
       ctx.fillStyle = 'rgba(0,0,0,0.8)';
       ctx.fillRect(barX - 3, barY - 3, barW + 6, 26);
       ctx.fillStyle = '#2a0a0a';
       ctx.fillRect(barX, barY, barW, 20);
       const hpPct = Math.max(0, e.hp / e.maxHp);
-      // Cor muda com a fase
       ctx.fillStyle = phase.index === 3 ? '#ff2020' : phase.index === 2 ? '#ff8020' : '#e03030';
       ctx.fillRect(barX, barY, barW * hpPct, 20);
-      // Marcadores de fase (33% e 66%)
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(barX + barW * 0.33, barY); ctx.lineTo(barX + barW * 0.33, barY + 20);
       ctx.moveTo(barX + barW * 0.66, barY); ctx.lineTo(barX + barW * 0.66, barY + 20);
       ctx.stroke();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(e.name + ' — ' + phase.name + ' — ' + attack.name, W/2, barY + 15);
       return;
     }
@@ -1449,7 +1412,7 @@ function draw() {
     ctx.arc(e.x + Math.cos(ea + 0.4) * e.r * 0.4, e.y + Math.sin(ea + 0.4) * e.r * 0.4, e.r * 0.18, 0, Math.PI*2);
     ctx.fill();
 
-    const hpPct = Math.max(0, e.hp / (20 + game.wave * 3));
+    const hpPct = Math.max(0, e.hp / ((18 + game.wave * 1.8) * DIFFICULTY * (e.type === 'tank' ? 2.5 : e.type === 'swarm' ? 0.25 : e.type === 'fast' ? 0.6 : e.type === 'stalker' ? 1.3 : e.type === 'shooter' ? 0.9 : e.type === 'bomber' ? 0.7 : 1)));
     ctx.fillStyle = '#000';
     ctx.fillRect(e.x - e.r, e.y - e.r - 8, e.r * 2, 4);
     ctx.fillStyle = '#f66';
@@ -1458,7 +1421,6 @@ function draw() {
     ctx.globalAlpha = 1;
   });
 
-  // Jogador
   drawAnimatedSprite(game.characterKey, p.x, p.y, p.r * 3, () => {
     const pColor = p.hitFlash > 0 ? '#fff' : c.color;
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
@@ -1499,11 +1461,9 @@ function draw() {
     ctx.fillStyle = 'rgba(0,0,0,0.75)';
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#f66';
-    ctx.font = 'bold 48px sans-serif';
-    ctx.textAlign = 'center';
+    ctx.font = 'bold 48px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('VOCÊ MORREU', W/2, H/2 - 20);
-    ctx.fillStyle = '#fff';
-    ctx.font = '24px sans-serif';
+    ctx.fillStyle = '#fff'; ctx.font = '24px sans-serif';
     ctx.fillText('Score: ' + game.score + ' | Onda: ' + game.wave, W/2, H/2 + 30);
     ctx.fillText(isTouch ? 'Toque para reiniciar' : 'Pressione ENTER para reiniciar', W/2, H/2 + 70);
   }
