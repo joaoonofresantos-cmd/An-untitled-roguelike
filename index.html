@@ -493,7 +493,7 @@ function spawnEnemy() {
 }
 
 function spawnBoss() {
-  const tier = Math.max(1, Math.floor(game.wave / 1));
+  const tier = Math.max(1, Math.floor(game.wave / 10));
   const baseBoss = BOSSES[(tier - 1) % BOSSES.length];
   const boss = scaleBoss(baseBoss, game.wave);
   boss.hp = Math.round(boss.hp * DIFFICULTY); boss.maxHp = Math.round(boss.maxHp * DIFFICULTY);
